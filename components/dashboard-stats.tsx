@@ -23,9 +23,12 @@ export default function DashboardStats({ lotteryId }: DashboardStatsProps) {
         const { data: results, error } = await supabase
           .from('results')
           .select('*')
-          .eq('lottery_id', lotteryId)
+          .eq('lottery_id', Number(lotteryId))
 
         if (error) throw error
+
+        console.log("Lottery ID:", lotteryId)
+console.log("Results:", results)
 
         const totalDraws = results?.length || 0
 
@@ -72,6 +75,7 @@ export default function DashboardStats({ lotteryId }: DashboardStatsProps) {
 
     if (lotteryId) {
       fetchStats()
+      
     }
   }, [lotteryId])
 
