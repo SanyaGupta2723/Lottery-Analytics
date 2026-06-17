@@ -12,42 +12,54 @@ interface DashboardStatsProps {
 export default function DashboardStats({ lotteryId }: DashboardStatsProps) {
   const [stats, setStats] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const supabase = createClient()
 
   useEffect(() => {
     const fetchStats = async () => {
+      const supabase = createClient()
+
       try {
         setLoading(true)
-        
-        // Fetch total draws
-        const { count: drawCount } = await supabase
-          .from('draws')
-          .select('*', { count: 'exact', head: true })
+
+        const { data: results, error } = await supabase
+          .from('results')
+          .select('*')
           .eq('lottery_id', lotteryId)
 
-        // Fetch most common number
-        const { data: topNumbers } = await supabase
-          .from('number_frequencies')
-          .select('number, frequency')
-          .eq('lottery_id', lotteryId)
-          .order('frequency', { ascending: false })
-          .limit(1)
+        if (error) throw error
 
-        // Fetch last draw date
-        const { data: lastDraws } = await supabase
-          .from('draws')
-          .select('draw_date')
-          .eq('lottery_id', lotteryId)
-          .order('draw_date', { ascending: false })
-          .limit(1)
+        const totalDraws = results?.length || 0
 
-        const mostCommonNumber = topNumbers?.[0]?.number || '-'
-        const lastDrawDate = lastDraws?.[0]?.draw_date
-          ? new Date(lastDraws[0].draw_date).toLocaleDateString()
-          : 'N/A'
+        const frequencyMap: Record<number, number> = {}
+
+        results?.forEach((row) => {
+          row.winning_numbers.forEach((num: number) => {
+            frequencyMap[num] = (frequencyMap[num] || 0) + 1
+          })
+        })
+
+        let mostCommonNumber = '-'
+        let maxFrequency = 0
+
+        Object.entries(frequencyMap).forEach(([num, freq]) => {
+          if (freq > maxFrequency) {
+            maxFrequency = freq
+            mostCommonNumber = num
+          }
+        })
+
+        const sortedResults = [...(results || [])].sort(
+          (a, b) =>
+            new Date(b.draw_date).getTime() -
+            new Date(a.draw_date).getTime()
+        )
+
+        const lastDrawDate =
+          sortedResults[0]?.draw_date
+            ? new Date(sortedResults[0].draw_date).toLocaleDateString()
+            : 'N/A'
 
         setStats({
-          totalDraws: drawCount || 0,
+          totalDraws,
           mostCommonNumber,
           lastDrawDate,
         })
@@ -61,7 +73,7 @@ export default function DashboardStats({ lotteryId }: DashboardStatsProps) {
     if (lotteryId) {
       fetchStats()
     }
-  }, [lotteryId, supabase])
+  }, [lotteryId])
 
   if (loading) {
     return (
@@ -81,12 +93,14 @@ export default function DashboardStats({ lotteryId }: DashboardStatsProps) {
         description="Historical draws analyzed"
         icon={<BarChart3 size={20} />}
       />
+
       <StatCard
         title="Most Common Number"
         value={`#${stats?.mostCommonNumber}`}
         description="Most frequently drawn"
         icon={<Hash size={20} />}
       />
+
       <StatCard
         title="Last Draw Date"
         value={stats?.lastDrawDate || 'N/A'}

@@ -22,22 +22,48 @@ export default function TrendingNumbers({ lotteryId }: TrendingNumbersProps) {
 
   useEffect(() => {
     const fetchTrendingNumbers = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('number_frequencies')
-          .select('number, frequency, last_drawn_date')
-          .eq('lottery_id', lotteryId)
-          .order('frequency', { ascending: false })
-          .limit(10)
+  try {
+    const { data: results, error } = await supabase
+      .from('results')
+      .select('winning_numbers, draw_date')
+      .eq('lottery_id', lotteryId)
 
-        if (error) throw error
-        setNumbers(data || [])
-      } catch (error) {
-        console.error('Error fetching trending numbers:', error)
-      } finally {
-        setLoading(false)
-      }
-    }
+    if (error) throw error
+
+    const frequencyMap: Record<number, NumberData> = {}
+
+    results?.forEach((row) => {
+      row.winning_numbers.forEach((num: number) => {
+        if (!frequencyMap[num]) {
+          frequencyMap[num] = {
+            number: num,
+            frequency: 0,
+            last_drawn_date: row.draw_date,
+          }
+        }
+
+        frequencyMap[num].frequency++
+
+        if (
+          new Date(row.draw_date) >
+          new Date(frequencyMap[num].last_drawn_date || '')
+        ) {
+          frequencyMap[num].last_drawn_date = row.draw_date
+        }
+      })
+    })
+
+    const topNumbers = Object.values(frequencyMap)
+      .sort((a, b) => b.frequency - a.frequency)
+      .slice(0, 10)
+
+    setNumbers(topNumbers)
+  } catch (error) {
+    console.error('Error fetching trending numbers:', error)
+  } finally {
+    setLoading(false)
+  }
+}
 
     if (lotteryId) {
       fetchTrendingNumbers()

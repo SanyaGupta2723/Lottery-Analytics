@@ -20,23 +20,38 @@ export default function FrequencyChart({ lotteryId }: FrequencyChartProps) {
   const supabase = createClient()
 
   useEffect(() => {
-    const fetchFrequencies = async () => {
-      try {
-        const { data: frequencies, error } = await supabase
-          .from('number_frequencies')
-          .select('number, frequency')
-          .eq('lottery_id', lotteryId)
-          .order('frequency', { ascending: false })
-          .limit(20)
+const fetchFrequencies = async () => {
+  try {
+    const { data: results, error } = await supabase
+      .from('results')
+      .select('winning_numbers')
+      .eq('lottery_id', lotteryId)
 
-        if (error) throw error
-        setData(frequencies || [])
-      } catch (error) {
-        console.error('Error fetching frequencies:', error)
-      } finally {
-        setLoading(false)
-      }
-    }
+    if (error) throw error
+
+    const frequencyMap: Record<number, number> = {}
+
+    results?.forEach((row) => {
+      row.winning_numbers.forEach((num: number) => {
+        frequencyMap[num] = (frequencyMap[num] || 0) + 1
+      })
+    })
+
+    const chartData = Object.entries(frequencyMap)
+      .map(([number, frequency]) => ({
+        number: Number(number),
+        frequency,
+      }))
+      .sort((a, b) => b.frequency - a.frequency)
+      .slice(0, 20)
+
+    setData(chartData)
+  } catch (error) {
+    console.error('Error fetching frequencies:', error)
+  } finally {
+    setLoading(false)
+  }
+}
 
     if (lotteryId) {
       fetchFrequencies()
